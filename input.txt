@@ -1,0 +1,28 @@
+minSaveInterval 10
+outputAll false
+findShuttles true
+matchToGen 18
+
+maxGen 200
+maxCatGen 100
+maxCats 8
+maxActiveCats 1
+
+//pattern b2o$2obo$2bo! -1 0
+//pattern 3bo$2b3o$b5o$2o3b2o$b5o$2b3o$3bo! -3 -3
+
+//pattern b2o$2o$bo! -1 -1
+//pattern b2o$2o$b2o! -1 -1
+pattern 2bo$obo$obo$o! -1 -2
+
+//TODO: slots
+cat 2o$o$b3o$3bo! -2 -2 * required bo$o$b3o$3bo! -2 -2 forbidden 2o$o$b3ob2o$3bobobo$6bo! -2 -2 forbidden bo$obo$2o2$2o$o$b3o$3bo! -2 -6 forbidden bo$2bo$3o2$3b2o$3bo$4b3o$6bo! -5 -6 forbidden 2bo$obo$b2o2$3b2o$3bo$4b3o$6bo! -5 -6
+cat 2o$2o! 0 0 . forbidden obo$b2o$bo2$2o$2o! 0 -4 forbidden 2o3bo$2ob2o$4b2o! 0 0 forbidden b2o$b2o2$bo$2o$obo! -1 0 forbidden 2o$b2ob2o$o3b2o! -4 -1 forbidden o3b2o$b2ob2o$2o! -4 0 forbidden obo$2o$bo2$b2o$b2o! -1 -4 forbidden 4b2o$2ob2o$2o3bo! 0 -1 forbidden 2o$2o2$bo$b2o$obo! 0 0 anyrequired 2o! 0 0 4o$o2bo! -1 -1 anyrequired o$o! 1 0 2o$bo$bo$2o! 1 -1 anyrequired 2o! 0 1 o2bo$4o! -1 1 anyrequired o$o! 0 0 2o$o$o$2o! -1 -1
+
+cat 4bo$3bobo$3bobo$b3ob2o$o$b3ob2o$3bob2o! -3 -3 @ required 4bo$3bobo$3bobo$b3ob2o$o$b3o$3bo! -3 -3 antirequired 4b3o$3b2ob2o$3bobobo$b3obob2o$2o3bo2bo$ob4obo$2o$b3obo$3b2o! -4 -4 locus bo$2o! 2 2 forbidden 4bo$3bobo$3bobo$b3ob2o$o$b3ob2o$3bob2o$8b2o$8bobo$8bo! -3 -3 forbidden 4bo$3bobo$3bobo$b3ob2o$o$b3ob2o$3bob2o$8b3o$8bo$9bo! -3 -3 forbidden 4bo$3bobo$3bobo$b3ob2o$o$b3ob2o$3bob2o2$7b3o$7bo$8bo! -3 -3 forbidden 4bo$3bobo$3bobo$b3ob2o$o$b3ob2o$3bob2o2$7b2o$7bobo$7bo! -3 -3
+cat 9b2o$4b2obo2bo$3bobob3o$3bobo$b3ob5o$o3bo4bo$2o2bobo$5b2o! -4 -1 * required 9b2o$10bo$7b3o$3bo$b3ob5o$o3bo4bo$2o2bobo$5b2o! -4 -1 antirequired 9b4o$9bo2bo$9b2obo$3bo7b2o$b3obob5o$2o3bo5bo$ob3ob4obo$o2b2obob4o$6o2bo$5b4o! -5 -2 locus b2obo$o! -1 0 forbidden bo$2bo$3o6b2o$4b2obo2bo$3bobob3o$3bobo$b3ob5o$o3bo4bo$2o2bobo$5b2o! -4 -3 forbidden 2bo$obo$b2o6b2o$4b2obo2bo$3bobob3o$3bobo$b3ob5o$o3bo4bo$2o2bobo$5b2o! -4 -3
+cat bo$obo$bo! -1 -1 . anyrequired bo$o! -1 -1 4o$2o$obo$o! -2 -2 anyrequired bo$o! 0 0 3bo$bobo$2b2o$4o! -1 -1 anyrequired o$bo! -1 0 o$obo$2o$4o! -2 -1 anyrequired o$bo! 0 -1 4o$2b2o$bobo$3bo! -1 -2
+cat 3bo$2bobo$3bo2$b5o$bo4bo$4bo2bo$4b2obo2bo$bo5bobobo$obo4bo2bo$o2bo2b2o$b2o! -1 -6 @ required 2bo$bobo$2bo2$5o$o4bo$3bo2bo$4bobo2bo$6bobobo$6bo2bo$5b2o! 0 -6 antirequired 3b3o$2b2ob2o$2bobobo$2b2ob2o$b7o$bo5b2o$bob4ob2o$b3o3bob4o$b3o3bob2ob2o$o6bobobobo$5b3ob2ob2o$5b2o2b4o$5b5o$4bo! -2 -7 locus o$o$b2o! -1 3 forbidden 6bo$5bobo$6bo2$4b5o$4bo4bo$7bo2bo$7b2obo2bo$4bo5bobobo$3bobo4bo2bo$3bo2bo2b2o$4b2o$b2o$obo$2bo! -4 -6 forbidden 6bo$5bobo$6bo2$4b5o$4bo4bo$7bo2bo$7b2obo2bo$4bo5bobobo$3bobo4bo2bo$3bo2bo2b2o$4b2o$3o$2bo$bo! -4 -6
+cat 2o$obo$bo! -1 -1 + required o! -1 -1 antirequired 4o$o2bo$obo$2o! -2 -2
+cat 7b2ob2o$4bobob2obo$3bob2o$b3o3bob2o$o3b3o3bo$b3o3b3o$3bo2bo$6b2o! -4 -1 * required 10b2o$8b2obo$3bo$b3o5b2o$o3b3o3bo$b3o3b3o$3bo2bo$6b2o! -4 -1 antirequired 10b4o$4bo5bo2bo$3bo4bo2bobo$b3obo4b4o$2o3b2o5bo$ob3o3b3obo$2o3b3o3b2o$b3ob2ob4o$3b4o2bo$6b4o! -5 -2 locus o! 0 0
+cat 3b2o$bo2bo$ob2o$bo2b3o$2b2o3bo$5b2o$2b2obo$2bo2bo$3b2o! 0 -2 * required 2b2o$o2bo$b2o$3b3o$2bo3bo$4b2o$4bo$4bo$3bo! 1 -2 antirequired b4o$2o2bo$b2obo$3b4o$b2o3b2o$3b3obo$bobo2b2o$3bob2o$3bobo$bo2b2o$b4o! 1 -3 locus o! 0 0
