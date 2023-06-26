@@ -16,6 +16,9 @@
 #include <set>
 #include <numeric>
 
+#define NUM_TRANSFORMS 16
+#define NUM_SYMMETRIES 22
+
 void split(const std::string &s, char delim, std::vector<std::string> &elems) {
   std::stringstream ss(s);
   std::string item;
@@ -175,19 +178,135 @@ std::vector<SymmetryTransform> CharToTransforms(char ch) {
     return SymmetryGroupFromEnum(StaticSymmetry::C1);
   }
 }
+StaticSymmetry SymmetryFromString(const std::string &name) {
+  std::string start = name.substr(0, 2);
+  std::string rest = name.substr(2);
+  if (start == "D2") {
+    if (rest == "-" or rest == "vertical") {
+      return StaticSymmetry::D2AcrossX;
+    } else if (rest == "-even" or rest == "verticaleven") {
+      return StaticSymmetry::D2AcrossXEven;
+    } else if (rest == "|" or rest == "horizontal") {
+      return StaticSymmetry::D2AcrossY;
+    } else if (rest == "|even" or rest == "horizontaleven") {
+      return StaticSymmetry::D2AcrossYEven;
+    } else if (rest == "/" or rest == "/odd") {
+      return StaticSymmetry::D2negdiagodd;
+    } else if (rest == "\\" or rest == "\\odd") {
+      return StaticSymmetry::D2diagodd;
+    }
+  } else if (start == "C2") {
+    if (rest == "" or rest == "_1") {
+      return StaticSymmetry::C2;
+    } else if (rest == "even" or rest == "_4") {
+      return StaticSymmetry::C2even;
+    } else if (rest == "horizontaleven" or rest == "|even") {
+      return StaticSymmetry::C2horizontaleven;
+    } else if (rest == "verticaleven" or rest == "-even" or rest == "_2") {
+      return StaticSymmetry::C2verticaleven;
+    }
+  } else if (start == "C4") {
+    if (rest == "" or rest == "_1") {
+      return StaticSymmetry::C4;
+    } else if (rest == "even" or rest == "_4") {
+      return StaticSymmetry::C4even;
+    }
+  } else if (start == "D4") {
+    std::string evenOddInfo = rest.substr(1);
+    if (rest[0] == '+' or (rest.size() > 1 and rest[1] == '+')) {
+      if (evenOddInfo == "" or rest == "_+1") {
+        return StaticSymmetry::D4;
+      } else if (evenOddInfo == "even" or rest == "_+4") {
+        return StaticSymmetry::D4even;
+      } else if (evenOddInfo == "verticaleven" or evenOddInfo == "-even" or
+                 rest == "_+2") {
+        return StaticSymmetry::D4verticaleven;
+      } else if (evenOddInfo == "horizontaleven" or evenOddInfo == "|even") {
+        return StaticSymmetry::D4horizontaleven;
+      }
+    } else if (rest[0] == 'x' or (rest.size() > 1 and rest[1] == 'x')) {
+      if (evenOddInfo == "" or rest == "_x1") {
+        return StaticSymmetry::D4diag;
+      } else if (evenOddInfo == "even" or rest == "_x4") {
+        return StaticSymmetry::D4diageven;
+      }
+    }
+  } else if (start == "D8") {
+    if (rest == "" or rest == "_1") {
+      return StaticSymmetry::D8;
+    } else if (rest == "even" or rest == "_4") {
+      return StaticSymmetry::D8even;
+    }
+  }
+  return StaticSymmetry::C1;
+}
+std::vector<SymmetryTransform> SymmetryChainFromEnum(const StaticSymmetry sym) {
+  switch (sym) {
+  case StaticSymmetry::C1:
+    return {};
+  case StaticSymmetry::D2AcrossX:
+    return {ReflectAcrossX};
+  case StaticSymmetry::D2AcrossXEven:
+    return {ReflectAcrossXEven};
+  case StaticSymmetry::D2AcrossY:
+    return {ReflectAcrossY};
+  case StaticSymmetry::D2AcrossYEven:
+    return {ReflectAcrossYEven};
+  case StaticSymmetry::D2diagodd:
+    return {ReflectAcrossYeqX};
+  case StaticSymmetry::D2negdiagodd:
+    return {ReflectAcrossYeqNegXP1};
+  case StaticSymmetry::C2:
+    return {Rotate180OddBoth};
+  case StaticSymmetry::C2even:
+    return {Rotate180EvenBoth};
+  case StaticSymmetry::C2horizontaleven:
+    return {Rotate180EvenHorizontal};
+  case StaticSymmetry::C2verticaleven:
+    return {Rotate180EvenVertical};
+  case StaticSymmetry::C4:
+    return {Rotate90, Rotate180OddBoth};
+  case StaticSymmetry::C4even:
+    return {Rotate90Even, Rotate180EvenBoth};
+  case StaticSymmetry::D4:
+    return {ReflectAcrossX, ReflectAcrossY};
+  case StaticSymmetry::D4even:
+    return {ReflectAcrossXEven, ReflectAcrossYEven};
+  case StaticSymmetry::D4horizontaleven:
+    return {ReflectAcrossYEven, ReflectAcrossX};
+  case StaticSymmetry::D4verticaleven:
+    return {ReflectAcrossXEven, ReflectAcrossY};
+  case StaticSymmetry::D4diag:
+    return {ReflectAcrossYeqX, ReflectAcrossYeqNegXP1};
+  case StaticSymmetry::D4diageven:
+    return {ReflectAcrossYeqX, ReflectAcrossYeqNegX};
+  case StaticSymmetry::D8:
+    return {ReflectAcrossX, ReflectAcrossY, Rotate90};
+  case StaticSymmetry::D8even:
+    return {ReflectAcrossXEven, ReflectAcrossYEven, Rotate90Even};
+  default: //D2negdiagevenSubgroupsOnly
+    return {ReflectAcrossYeqNegX};
+  }
+}
 
 class SearchParams {
     public:
-    int minSaveInterval;
+    unsigned threads = 1;
+    int minSaveInterval = 60;
     std::string allOutputFile = "output-all.rle";
     std::string partialsOutputFile = "output-part.rle";
+    std::string shuttlesOutputFile = "output-shuttle.rle";
+    std::string oscsOutputFile = "output-osc.rle";
     bool outputAll = true;
     bool findShuttles = true;
     unsigned matchToGen = 1;
+    unsigned maxOutputsPerRow = ~0U;
 
     std::string pattern = "";
     int patternX = 0;
     int patternY = 0;
+    bool branchUseUniqueRepresentative = false;
+    StaticSymmetry symmetry;
     
     unsigned maxGen = 0;
     unsigned maxCatGen = 0;
@@ -270,6 +389,20 @@ class LifeEnvelope {
         Join(newEnvelope);
     }
 
+    void Inverse() {
+        oneNeighbor.Inverse();
+        twoNeighbors.Inverse();
+        threeNeighbors.Inverse();
+        anyNeighbors.Inverse();
+    }
+    LifeEnvelope& operator&=(const LifeEnvelope &other) {
+        oneNeighbor &= other.oneNeighbor;
+        twoNeighbors &= other.twoNeighbors;
+        threeNeighbors &= other.threeNeighbors;
+        anyNeighbors &= other.anyNeighbors;
+        return *this;
+    }
+
     LifeEnvelope Moved(int x, int y) const {
         LifeEnvelope output = *this;
         output.oneNeighbor.Move(x,y);
@@ -286,6 +419,19 @@ class LifeEnvelope {
 
     bool Intersects(const LifeEnvelope &otherEnvelope, int dX, int dY) const {
         return oneNeighbor.Intersects(otherEnvelope.twoNeighbors | otherEnvelope.threeNeighbors, dX, dY) || twoNeighbors.Intersects(otherEnvelope.oneNeighbor | otherEnvelope.threeNeighbors, dX, dY) || threeNeighbors.Intersects(otherEnvelope.anyNeighbors, dX, dY) || anyNeighbors.Intersects(otherEnvelope.threeNeighbors, dX, dY);
+    }
+};
+
+template <>
+struct std::hash<LifeState>
+{
+    std::size_t operator()(const LifeState& k) const
+    {
+        std::size_t output = 0;
+        for (unsigned i = 0; i < N; i++) {
+            output ^= hash<uint64_t>{}(k.state[i]) + 0x9e3779b9 + (output<<6) + (output>>2);
+        }
+        return output;
     }
 };
 
@@ -344,6 +490,10 @@ class Catalyst {
     public:
     LifeState state;
     LifeState locus;
+    
+    bool firstUnderTransform[NUM_TRANSFORMS];
+    LifeState fundamentalDomains[NUM_SYMMETRIES];
+    LifeState symmetryExclusions[NUM_SYMMETRIES];
 
     LifeState locusOneNeighborR180;
     LifeState locusTwoNeighborsR180;
@@ -379,17 +529,6 @@ class Catalyst {
             presentState.Copy(testState, AND);
             if (!presentState.IsEmpty()) return true;
         }
-        for (auto [forbiddenState, forbiddenStateBorder] : forbidden) {
-            LifeState forbiddenError = forbiddenState;
-            forbiddenError.Move(x, y);
-            forbiddenError.Copy(testState, ANDNOT);
-            LifeState forbiddenBorderError = forbiddenStateBorder;
-            forbiddenBorderError.Move(x, y);
-            forbiddenBorderError.Copy(testState, AND);
-            if (forbiddenError.IsEmpty() && forbiddenBorderError.IsEmpty()) {
-                return true;
-            }
-        }
         if (!anyrequired.empty())
         {
             bool anyRequirementMet = false;
@@ -408,6 +547,21 @@ class Catalyst {
                 }
             }
             if (!anyRequirementMet) return true;
+        }
+        return false;
+    }
+
+    bool Forbidden(const LifeState &testState, const int &x, const int &y) const {
+        for (auto [forbiddenState, forbiddenStateBorder] : forbidden) {
+            LifeState forbiddenError = forbiddenState;
+            forbiddenError.Move(x, y);
+            forbiddenError.Copy(testState, ANDNOT);
+            LifeState forbiddenBorderError = forbiddenStateBorder;
+            forbiddenBorderError.Move(x, y);
+            forbiddenBorderError.Copy(testState, AND);
+            if (forbiddenError.IsEmpty() && forbiddenBorderError.IsEmpty()) {
+                return true;
+            }
         }
         return false;
     }
@@ -453,6 +607,66 @@ class Catalyst {
             anyrequired[i].first.Copy(state, AND);
             anyrequired[i].second.Copy(state, ANDNOT);
         }
+
+        //TODO: These are very slow
+
+        //fill out fundamental domains
+        //registering these isn't super optimized but we only need to do it once
+        //TODO: Need to make sure these work properly with periodic catalysts
+        for (unsigned i = 0; i < NUM_SYMMETRIES; i++) {
+            fundamentalDomains[i] = LifeState();
+            std::vector<SymmetryTransform> validTransforms;
+            for (auto &testTransform : SymmetryGroupFromEnum(static_cast<StaticSymmetry>(i))) {
+                if (testTransform == Identity) continue;
+                LifeState transformedCat = state;
+                transformedCat.Transform(testTransform);
+                if (!transformedCat.FindMatches(state).IsEmpty()) {
+                    validTransforms.push_back(testTransform);
+                }
+            }
+            if (!validTransforms.empty()) {
+                std::set<LifeState> accountedForStates;
+                for (unsigned x = 0; x < 64; x++) {
+                    for (unsigned y = 0; y < 64; y++) {
+                        LifeState testPlacedState = state;
+                        testPlacedState.Move(x, y);
+                        if (accountedForStates.find(testPlacedState) == accountedForStates.end()) {
+                            fundamentalDomains[i].Set(x, y);
+                            for (auto &transform : validTransforms) {
+                                LifeState addState = testPlacedState;
+                                addState.Transform(transform);
+                                accountedForStates.insert(addState);
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                fundamentalDomains[i].Inverse();
+            }
+        }
+        
+        //fill out symmetry exclusions
+        //TODO: These need to be the same for each step of the pattern
+        for (unsigned i = 0; i < NUM_SYMMETRIES; i++) {
+            symmetryExclusions[i] = LifeState();
+            for (int x = 0; x < 64; x++) {
+                for (int y = 0; y < 64; y++) {
+                    LifeState testPlacedState = state;
+                    testPlacedState.Move(x, y);
+                    LifeState testPlacedStateWithSymmetry = testPlacedState.GetSymChain(SymmetryChainFromEnum(static_cast<StaticSymmetry>(i)));
+                    testPlacedStateWithSymmetry.Copy(testPlacedState, ANDNOT);
+                    //check if the zoi from testPlacedState intersects the zoi from testPlacedStateWithSymmetry
+                    //Note: This is very slightly overzealous: It doesn't allow catalysts which share a ZOI but are still stable
+                    //The reason for this is that they would interfere with each other's neighbor counts
+                    //TODO: However, it should be possible to allow (stable) configurations like this provided neither's locus is too close to the other
+                    if (!testPlacedState.ZOI().AreDisjoint(testPlacedStateWithSymmetry.ZOI())) {
+                        //invalid position
+                        symmetryExclusions[i].Set(x, y);
+                    }
+                }
+            }
+        }
     }
 
     static void AddCatalyst(std::vector<Catalyst> *catalysts, const std::vector<std::string> &elems) {
@@ -462,12 +676,14 @@ class Catalyst {
         }
 
         Catalyst catalyst;
-        catalyst.state = LifeState::Parse(elems[1].c_str(), stoi(elems[2]), stoi(elems[3]));
+        catalyst.state = LifeState::Parse(elems[1].c_str(), stoi(elems[3]), stoi(elems[4]));
         catalyst.locus = catalyst.state;
-        
-        std::vector<SymmetryTransform> transforms = CharToTransforms(elems[4].at(0));
 
-        int index = 5;
+        //TODO: catalyst.recoveryTime = stoi(elems[2]);
+        
+        std::vector<SymmetryTransform> transforms = CharToTransforms(elems[5].at(0));
+
+        int index = 6;
         
         while (index < (int)elems.size()) {
             if (elems[index] == "forbidden") {
@@ -493,32 +709,74 @@ class Catalyst {
                 catalyst.locus = LifeState::Parse(elems[index + 1].c_str(), stoi(elems[index + 2]), stoi(elems[index + 3]));
                 index += 4;
             }
+            else if (elems[index] == "slots") {
+//TODO:                catalyst.slots = stoi(elems[index + 1]);
+                index += 2;
+            }
+            else if (elems[index] == "check-recovery") {
+//TODO:                catalyst.checkRecovery = true;
+                index += 1;
+            }
+            else if (elems[index] == "check-recovery-always") {
+//TODO:                catalyst.checkRecoveryAlways = true;
+                index += 1;
+            }
             else {
                 printf("Bad catalyst: Invalid parameter %s\n", elems[index].c_str());
                 exit(0);
             }
         }
 
+        int startingIndex = catalysts->size();
         for (auto &transform : transforms) {
             Catalyst transformedCatalyst = catalyst;
             transformedCatalyst.Transform(transform);
             transformedCatalyst.FillOutData();
+
+            //fill out transforms
+            for (int i = 0; i < NUM_TRANSFORMS; i++) {
+                transformedCatalyst.firstUnderTransform[i] = true;
+                for (int testCatIndex = startingIndex; testCatIndex < (int)catalysts->size(); testCatIndex++) {
+                    LifeState earlierCatState = (*catalysts)[testCatIndex].state;
+                    earlierCatState.Transform(static_cast<SymmetryTransform>(i));
+                    if (!earlierCatState.FindMatches(transformedCatalyst.state).IsEmpty()) {
+                        transformedCatalyst.firstUnderTransform[i] = false;
+                        break;
+                    }
+                }
+            }
             
             printf("Loaded catalyst %d\n", (int)catalysts->size());
             catalysts->push_back(std::move(transformedCatalyst));
         }
     }
+    
+    bool FirstUnderSymmetry(const std::vector<SymmetryTransform> transforms) {
+        for (auto &transform : transforms) {
+            if (!firstUnderTransform[static_cast<int>(transform)]) return false;
+        }
+        return true;
+    }
 
-    LifeState FindNewInteractionPositions(const LifeEnvelope &interactWithEnvelope, const LifeEnvelope &excludeEnvelope) {
+    LifeState FindNewInteractionPositions(const LifeEnvelope &interactWithEnvelope, const LifeEnvelope &excludeEnvelope, StaticSymmetry patternSymmetry) {
         LifeState catalystPositions = locusOneNeighborR180.Convolve(interactWithEnvelope.twoNeighbors);
         catalystPositions |= locusTwoNeighborsR180.Convolve(interactWithEnvelope.oneNeighbor);
         catalystPositions |= locusZOIR180.Convolve(interactWithEnvelope.threeNeighbors);
         if (catalystPositions.IsEmpty()) return catalystPositions;
+        //TODO: Removals need to not be locus-based
         catalystPositions &= ~locusOneNeighborR180.Convolve(excludeEnvelope.twoNeighbors);
         if (catalystPositions.IsEmpty()) return catalystPositions;
         catalystPositions &= ~locusTwoNeighborsR180.Convolve(excludeEnvelope.oneNeighbor);
         if (catalystPositions.IsEmpty()) return catalystPositions;
         catalystPositions &= ~locusZOIR180.Convolve(excludeEnvelope.threeNeighbors);
+        
+        //TODO: make this currentSymmetry?
+        if (patternSymmetry != C1)
+            catalystPositions &= fundamentalDomains[static_cast<int>(patternSymmetry)];
+
+        if (patternSymmetry != C1)
+            catalystPositions &= ~symmetryExclusions[static_cast<int>(patternSymmetry)];
+
         return catalystPositions;
     }
 };
@@ -528,8 +786,8 @@ class SearchData {
     unsigned generation;
     LifeState startState;
     std::map<
-        LifeState,
-        std::set<std::pair<std::vector<std::tuple<unsigned, unsigned, unsigned, bool>>, LifeEnvelope>>
+        uint64_t,
+        std::set<std::vector<std::tuple<unsigned, unsigned, unsigned, bool>>>
     > statePossibilities;
         //takes state-catalystsState
         //to sets of:
@@ -556,6 +814,13 @@ class Searcher {
     
     CategoryContainer<LifeState> allOutputsCategoryContainer;
     CategoryContainer<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> partialsCategoryContainer;
+    CategoryContainer<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> shuttlesCategoryContainer;
+    CategoryContainer<unsigned> oscillatorsCategoryContainer;
+
+    std::set<uint64_t> avoidOscs;
+
+    std::mutex reportLock;
+    std::mutex categoryContainerLock;
 
     //initialize search
     void Init(const std::string& fname) {
@@ -574,9 +839,14 @@ class Searcher {
             if (elems.size() < 2)
                 continue;
                 
+            if (elems[0] == "threads") {
+                params.threads = stoi(elems[1]);
+            }
             if (elems[0] == "outputFile") {
                 params.allOutputFile = elems[1] + "-all.rle";
                 params.partialsOutputFile = elems[1] + "-part.rle";
+                params.shuttlesOutputFile = elems[1] + "-shuttle.rle";
+                params.oscsOutputFile = elems[1] + "-osc.rle";
             }
             if (elems[0] == "outputAll") {
                 params.outputAll = (elems[1] == "true");
@@ -590,6 +860,9 @@ class Searcher {
             if (elems[0] == "matchToGen") {
                 params.matchToGen = stoi(elems[1]);
             }
+            if (elems[0] == "maxOutputsPerRow") {
+                params.maxOutputsPerRow = stoi(elems[1]);
+            }
 
             if (elems[0] == "pattern") {
                 params.pattern = elems[1];
@@ -598,6 +871,9 @@ class Searcher {
                     params.patternX = stoi(elems[2]);
                     params.patternY = stoi(elems[3]);
                 }
+            }
+            if (elems[0] == "symmetry") {
+                params.symmetry = SymmetryFromString(elems[1]);
             }
             if (elems[0] == "maxGen") {
                 params.maxGen = stoull(elems[1]);
@@ -611,100 +887,137 @@ class Searcher {
             if (elems[0] == "maxActiveCats") {
                 params.maxActiveCats = stoull(elems[1]);
             }
+            if (elems[0] == "branchUseUniqueRepresentative") {
+                params.branchUseUniqueRepresentative = (elems[1] == "true");
+            }
 
             if (elems[0] == "cat")
             {
                 Catalyst::AddCatalyst(&catalysts, elems);
             }
         }
+
+        allOutputsCategoryContainer.maxOutputsPerRow = params.maxOutputsPerRow;
+        partialsCategoryContainer.maxOutputsPerRow = params.maxOutputsPerRow;
+        shuttlesCategoryContainer.maxOutputsPerRow = params.maxOutputsPerRow;
+        oscillatorsCategoryContainer.maxOutputsPerRow = params.maxOutputsPerRow;
     }
 
     void Run() {
         mainData = GetStartData();
 
         for (unsigned gen = 0; gen < params.maxGen; gen++) {
-            /*for (auto [stateData, catalystsDatas] : mainData.statePossibilities) {
-                bool stillInteracting = false;
-                LifeState exampleStartState = mainData.startState;
-                LifeState exampleEndState = stateData;
-                for (auto [catIndex, catX, catY, catActive] : catalystsDatas.begin()->first) {
-                    exampleStartState |= catalysts[catIndex].state.Moved(catX, catY);
-                    if (!catActive) {
-                        exampleEndState |= catalysts[catIndex].state.Moved(catX, catY);
-                    }
-                    else {
-                        stillInteracting = true;
-                        break;
-                    }
-                }
-                if (stillInteracting) continue; 
-                exampleStartState.Print();
-                exampleEndState.Print();
-            }*/
-
-            mainData = GetNextStep(mainData);
+            mainData = GetNextStep(std::move(mainData));
+            mainDataProgress = 0;
+            Report();
         }
-        Report();
-
-        /*for (auto [stateData, catalystsDatas] : mainData.statePossibilities) {
-            LifeState exampleStartState = mainData.startState;
-            LifeState exampleEndState = stateData;
-            for (auto [catIndex, catX, catY, catActive] : catalystsDatas.begin()->first) {
-                exampleStartState |= catalysts[catIndex].state.Moved(catX, catY);
-                if (!catActive) {
-                    exampleEndState |= catalysts[catIndex].state.Moved(catX, catY);
-                }
-            }
-            exampleStartState.Print();
-            exampleEndState.Print();
-        }*/
     }
 
     SearchData GetStartData() {
         SearchData output;
         output.generation = 0;
         output.startState = LifeState::Parse(params.pattern.c_str(), params.patternX, params.patternY);
+        output.startState.SymChain(SymmetryChainFromEnum(params.symmetry));
 
-        output.statePossibilities[output.startState] = {{{}, LifeEnvelope::Envelope(output.startState)}};
+        output.statePossibilities[std::hash<LifeState>{}(output.startState)] = {{}};
 
         return output;
     }
 
+    std::vector<std::thread> threads;
+    std::mutex getNextStepOutputLock;
+    std::mutex getNextStepIndexLock;
+    std::mutex getNextStepSearchDataLock;
+
     //gets the possibilities for the next step
-    //TODO: Detect stabilization
     SearchData GetNextStep(const SearchData &searchData) {
         SearchData output;
         output.generation = searchData.generation + 1;
         output.startState = searchData.startState;
-
+        
         mainDataProgress = 0;
-        for (auto [stateData, catalystsDatas] : searchData.statePossibilities) {
+
+        std::map<uint64_t, std::set<std::vector<std::tuple<unsigned int, unsigned int, unsigned int, bool>>>>::const_iterator indexInSearchData = searchData.statePossibilities.begin();
+        
+        //initialize threads
+        threads = std::vector<std::thread>();
+        for (unsigned i = 0; i < params.threads; i++) {
+            threads.push_back(std::thread(&Searcher::SearchThroughMap, this, &output, &searchData, &indexInSearchData));
+        }
+
+        //wait for threads to finish
+        for (unsigned i = 0; i < params.threads; i++)
+        {
+            threads[i].join();
+        }
+
+        return output;
+    }
+
+    void SearchThroughMap(SearchData *output, const SearchData *searchData, std::map<uint64_t, std::set<std::vector<std::tuple<unsigned int, unsigned int, unsigned int, bool>>>>::const_iterator *indexInSearchData) {
+        getNextStepSearchDataLock.lock();
+        unsigned searchDataGeneration = searchData->generation;
+        LifeState searchDataStartState = searchData->startState;
+        auto searchDataEnd = searchData->statePossibilities.end();
+        getNextStepSearchDataLock.unlock();
+
+        std::vector<SymmetryTransform> symmetryChain = SymmetryChainFromEnum(params.symmetry);
+
+        while (true) {
+            getNextStepIndexLock.lock();
+
+            if (*indexInSearchData == searchDataEnd) {
+                getNextStepIndexLock.unlock();
+                break;
+            }
+
+            std::set<std::vector<std::tuple<unsigned int, unsigned int, unsigned int, bool>>> catalystsDatas = (*indexInSearchData)->second;
+
+            (*indexInSearchData)++;
+            getNextStepIndexLock.unlock();
+
             //find next-gen info and add to output.statePossibilities
+            //reconstruct current state
+            LifeState currentState = searchDataStartState;
+            for (auto [catIndex, catX, catY, catActive] : *(catalystsDatas.begin())) {
+                currentState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+            }
+            for (unsigned gen = 0; gen < searchDataGeneration; gen++) {
+                currentState.Step();
+            }
+            for (auto [catIndex, catX, catY, catActive] : *(catalystsDatas.begin())) {
+                if(!catActive) currentState &= ~catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+            }
             
             //find the next state of the pattern
-            LifeState nextState = stateData; nextState.Step();
-
+            LifeState nextState = currentState; nextState.Step();
+            
             //find matches for startState and descendants of startState
-            std::vector<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> matchPoints = FindPartialMatches(nextState, searchData.startState, std::min(params.matchToGen, output.generation), output.generation);
+            //exclude partials where the pattern intersects an active catalyst
+            LifeState activeCatalystsState;
+            for (auto [catIndex, catX, catY, catActive] : *(catalystsDatas.begin())) {
+                if (catActive) activeCatalystsState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+            }
+            std::vector<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> matchPoints = FindPartialMatches(nextState, searchDataStartState, activeCatalystsState, std::min(params.matchToGen, searchDataGeneration+1), searchDataGeneration+1);
             //exclude matches also present in stateData
             std::vector<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> newMatchPoints;
             for (auto [genOffset, x, y, transform] : matchPoints) {
-                if (genOffset == output.generation) {
+                if (genOffset == searchDataGeneration + 1) {
                     newMatchPoints.push_back({genOffset, x, y, transform});
                 } else {
-                    LifeState tryMatch = searchData.startState;
-                    for (unsigned gen = 0; gen < output.generation - genOffset - 1; gen++) {
+                    LifeState tryMatch = searchDataStartState;
+                    for (unsigned gen = 0; gen < searchDataGeneration - genOffset; gen++) {
                         tryMatch.Step();
                     }
                     tryMatch.Transform(transform);
                     LifeState tryMatchBorder = tryMatch.ZOI() & ~tryMatch;
-                    if (!(stateData.Contains(tryMatch, x, y) && stateData.AreDisjoint(tryMatchBorder, x, y)))
+                    if (!(currentState.Contains(tryMatch, x, y) && currentState.AreDisjoint(tryMatchBorder, x, y)))
                         newMatchPoints.push_back({genOffset, x, y, transform});
                 }
             }
 
-            LifeEnvelope currentEnvelope = LifeEnvelope::Envelope(stateData);
             LifeEnvelope nextEnvelope = LifeEnvelope::Envelope(nextState);
+            LifeEnvelope envelopeIntersection; envelopeIntersection.Inverse();
 
             //add new catalysts in all possible configurations
             std::vector<
@@ -721,7 +1034,7 @@ class Searcher {
                 bool isValid = true;
 
                 LifeState newDefaultNextState = nextState;
-                std::vector<std::tuple<unsigned, unsigned, unsigned, bool>> newDefaultCatalystsDataList = catalystsData.first;
+                std::vector<std::tuple<unsigned, unsigned, unsigned, bool>> newDefaultCatalystsDataList = catalystsData;
 
                 bool allCatsFormerlyInactive = true;
                 bool allCatsCurrentlyInactive = true;
@@ -729,7 +1042,7 @@ class Searcher {
 
                 //remove (deactivate) all active catalysts no longer interacting with the rest of the pattern, and add (activate) all catalysts which are now interacting with the rest of the pattern
                 unsigned indexInData = 0;
-                for (auto [catIndex, catX, catY, catActive] : catalystsData.first) {
+                for (auto [catIndex, catX, catY, catActive] : catalystsData) {
                     if (catActive) {
                         //validity checking
                         //TODO: Optional required recovery time
@@ -743,7 +1056,7 @@ class Searcher {
                         //cat is active previously
                         if (catalysts[catIndex].SeparatedFrom(catX, catY, nextState)) {
                             //need to deactivate this
-                            newDefaultNextState &= ~catalysts[catIndex].state.Moved(catX, catY);
+                            newDefaultNextState &= ~catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
                             std::get<3>(newDefaultCatalystsDataList[indexInData]) = false;
                         }
                         else {
@@ -755,7 +1068,7 @@ class Searcher {
                         //cat is inactive previously
                         if (catalysts[catIndex].InteractsWith(catX, catY, nextState, nextEnvelope)) {
                             //need to activate this
-                            newDefaultNextState |= catalysts[catIndex].state.Moved(catX, catY);
+                            newDefaultNextState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
                             std::get<3>(newDefaultCatalystsDataList[indexInData]) = true;
 
                             allCatsCurrentlyInactive = false;
@@ -767,60 +1080,119 @@ class Searcher {
 
                 if (!isValid) continue;
 
-                if (newDefaultCatalystsDataList.size() < params.maxCats && activeCats < params.maxActiveCats) couldBeANewCatalyst = true;
+                //get envelope
+                LifeState thisCurrentState = searchDataStartState;
+                for (auto [catIndex, catX, catY, catActive] : catalystsData) {
+                    thisCurrentState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+                }
+                LifeEnvelope currentEnvelope;
+                for (unsigned gen = 0; gen < searchDataGeneration; gen++) {
+                    currentEnvelope.Join(LifeEnvelope::Envelope(thisCurrentState));
+                    thisCurrentState.Step();
+                }
+                currentEnvelope.Join(LifeEnvelope::Envelope(thisCurrentState));
+                if (newDefaultCatalystsDataList.size() < params.maxCats && activeCats < params.maxActiveCats) {
+                    couldBeANewCatalyst = true;
+                    envelopeIntersection &= currentEnvelope;
+                }
+
+                //detect oscillation
+                LifeState detectOscillation = searchDataStartState;
+                for (auto [catIndex, catX, catY, catActive] : newDefaultCatalystsDataList) {
+                    detectOscillation |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+                }
+                LifeState nextStateWithCats = newDefaultNextState;
+                for (auto [catIndex, catX, catY, catActive] : newDefaultCatalystsDataList) {
+                    if(!catActive) nextStateWithCats |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+                }
+                //detectOscillation.Print();
+                //nextStateWithCats.Print();
+                unsigned oscPeriod = 0;
+                for (unsigned gen = 0; gen < searchDataGeneration+1; gen++) {
+                    if (detectOscillation == nextStateWithCats) {
+                        //this is an oscillator
+                        oscPeriod = searchDataGeneration+1 - gen;
+                        break;
+                    }
+                    detectOscillation.Step();
+                }
+                //detectOscillation.Print();
 
                 //if all catalysts are newly inactive, this is a solution
+                categoryContainerLock.lock();
                 if (params.outputAll && allCatsCurrentlyInactive && !allCatsFormerlyInactive) {
-                    LifeState exampleStartState = searchData.startState;
+                    LifeState exampleStartState = searchDataStartState;
                     LifeState exampleEndState = newDefaultNextState;
                     for (auto [catIndex, catX, catY, catActive] : newDefaultCatalystsDataList) {
-                        exampleStartState |= catalysts[catIndex].state.Moved(catX, catY);
+                        exampleStartState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
                         if (!catActive)
-                            exampleEndState |= catalysts[catIndex].state.Moved(catX, catY);
+                            exampleEndState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
                     }
 
                     allOutputsCategoryContainer.Add(exampleStartState, exampleEndState, newDefaultNextState);
                 }
                 if (!newMatchPoints.empty()) {
-                    LifeState exampleStartState = searchData.startState;
+                    LifeState exampleStartState = searchDataStartState;
                     LifeState exampleEndState = newDefaultNextState;
                     for (auto [catIndex, catX, catY, catActive] : newDefaultCatalystsDataList) {
-                        exampleStartState |= catalysts[catIndex].state.Moved(catX, catY);
+                        exampleStartState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
                         if (!catActive)
-                            exampleEndState |= catalysts[catIndex].state.Moved(catX, catY);
+                            exampleEndState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
                     }
 
-                    //TODO: Add for all members of newMatchPoints
-                    partialsCategoryContainer.Add(exampleStartState, exampleEndState, newMatchPoints[0]);
+                    for (auto &matchPointData : newMatchPoints)
+                    {
+                        if (std::get<3>(matchPointData) == Identity)
+                            partialsCategoryContainer.Add(exampleStartState, exampleEndState, matchPointData);
+                        else
+                            shuttlesCategoryContainer.Add(exampleStartState, exampleEndState, matchPointData);
+                    }
                 }
+                if (oscPeriod > 2) {
+                    if (AddOscillatorsToCollection(nextStateWithCats, oscPeriod)) {
+                        LifeState exampleStartState = searchDataStartState;
+                        LifeState exampleEndState = newDefaultNextState;
+                        for (auto [catIndex, catX, catY, catActive] : newDefaultCatalystsDataList) {
+                            exampleStartState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+                            if (!catActive)
+                                exampleEndState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+                        
+                        }
+                        oscillatorsCategoryContainer.Add(exampleStartState, exampleEndState, oscPeriod);
+                    }
+                }
+                categoryContainerLock.unlock();
 
-                newNextInfos.push_back({newDefaultNextState, {newDefaultCatalystsDataList, catalystsData.second}});
+                if (oscPeriod == 0) newNextInfos.push_back({newDefaultNextState, {newDefaultCatalystsDataList, currentEnvelope}});
             }
 
             //find all possible positions for new catalysts
             if (couldBeANewCatalyst) {
                 std::vector<std::tuple<unsigned, unsigned, unsigned>> possibleNewCatalysts;
-                if (output.generation <= params.maxCatGen) {
-                    
+                if (searchDataGeneration < params.maxCatGen) {
+                    std::vector<SymmetryTransform> currentSymGroup = SymmetryGroupFromEnum(params.symmetry);
                     for (unsigned catIndex = 0; catIndex < catalysts.size(); catIndex++) {
+                        if (catalysts[catIndex].FirstUnderSymmetry(currentSymGroup)) {
+                            //find new interaction positions
+                            //instead of using current envelope, can use the intersection of all possible envelopes
+                            LifeState possibleCatPositions = catalysts[catIndex].FindNewInteractionPositions(nextEnvelope, envelopeIntersection, params.symmetry);
 
-                        //find new interaction positions
-                        //TODO: Instead of using current envelope, can use the intersection of all possible envelopes
-                        LifeState possibleCatPositions = catalysts[catIndex].FindNewInteractionPositions(nextEnvelope, currentEnvelope);
-
-                        if (!possibleCatPositions.IsEmpty()) {
+                            if (!possibleCatPositions.IsEmpty()) {
                             for (unsigned x = 0; x < 64; x++) {
                                 if (possibleCatPositions.state[x] != 0) {
                                     for (unsigned y = 0; y < 64; y++) {
                                         if (possibleCatPositions.GetCell(x,y) == 1) {
                                             //possible new catalyst position
+
+                                            //avoid forbidden positions
+                                            LifeState testState = nextState;
+                                            testState |= catalysts[catIndex].state.Moved(x, y).GetSymChain(symmetryChain);
+                                            if (catalysts[catIndex].Forbidden(testState, x, y)) continue;
                                             
                                             //checkRecovery
                                             //TODO: Make optional
                                             bool recovers = false;
-                                            LifeState testState = nextState;
-                                            testState |= catalysts[catIndex].state.Moved(x, y);
-                                            for (unsigned testGen = searchData.generation + 2; testGen < params.maxGen; testGen++) {
+                                            for (unsigned testGen = searchDataGeneration + 2; testGen < params.maxGen; testGen++) {
                                                 testState.Step();
                                                 if (catalysts[catIndex].Invalid(testState, x, y)) {
                                                     break;
@@ -837,6 +1209,7 @@ class Searcher {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }
@@ -862,7 +1235,7 @@ class Searcher {
                             buildFromNextEnvelope.Print();*/
 
                             if (!catalysts[catIndex].InteractsWith(catX, catY, buildFromNextState, buildFromNextEnvelope)) {
-                                buildFromNextState |= catalysts[catIndex].state.Moved(catX, catY);
+                                buildFromNextState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
                                 buildFromCatalystsDataList.push_back({catIndex, catX, catY, true});
                                 buildFromNextEnvelope.AddJoin(catalysts[catIndex].envelope.Moved(catX, catY));
 
@@ -876,18 +1249,48 @@ class Searcher {
             }
 
             for (auto &newInfo : newNextInfos) {
-                //adjust envelope
-                newInfo.second.second.Join(LifeEnvelope::Envelope(newInfo.first));
+                //TODO: checkRecoveryAlways
+                //TODO: should check this doesn't prune excessively
+                LifeState testState = newInfo.first;
+                for (auto [catIndex, catX, catY, catActive] : newInfo.second.first) {
+                    if (!catActive) testState |= catalysts[catIndex].state.Moved(catX, catY).GetSymChain(symmetryChain);
+                }
+                bool allCatsRecover = false;
+                for (unsigned testGen = searchDataGeneration + 2; testGen < params.maxGen; testGen++) {
+                    testState.Step();
+                    allCatsRecover = true;
+                    bool aCatFails = false;
+                    for (auto [catIndex, catX, catY, catActive] : newInfo.second.first) {
+                        if (catalysts[catIndex].Invalid(testState, catX, catY)) {
+                            aCatFails = true;
+                            allCatsRecover = false;
+                            break;
+                        }
+                        if (!catalysts[catIndex].SeparatedFrom(catX, catY, testState)) {
+                            allCatsRecover = false;
+                            break;
+                        }
+                    }
+                    if (aCatFails) break;
+                    if (allCatsRecover) break;
+                }
+                if (!allCatsRecover) continue;
 
                 //add our new data to the corresponding key
-                if (output.statePossibilities.find(newInfo.first) == output.statePossibilities.end()) {
-                    output.statePossibilities[newInfo.first] = {};
+                uint64_t hashValue = std::hash<LifeState>{}(newInfo.first);
+
+                getNextStepOutputLock.lock();
+                if (output->statePossibilities.find(hashValue) == output->statePossibilities.end()) {
+                    output->statePossibilities[hashValue] = {};
                 }
-                output.statePossibilities[newInfo.first].insert(newInfo.second);
-                nextDataSize = output.statePossibilities.size();
+                if (output->statePossibilities[hashValue].empty() || !params.branchUseUniqueRepresentative)
+                    output->statePossibilities[hashValue].insert(newInfo.second.first);
+                nextDataSize = output->statePossibilities.size();
+                getNextStepOutputLock.unlock();
             }
 
             //try reporting
+            reportLock.lock();
             iterations++;
             mainDataProgress++;
             std::chrono::time_point<std::chrono::steady_clock> timePoint = std::chrono::steady_clock::now();
@@ -896,68 +1299,67 @@ class Searcher {
                 lastSaveTime = timePoint;
                 Report();
             }
+            reportLock.unlock();
         }
-        return output;
     }
 
-    std::vector<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> FindPartialMatches(const LifeState &lifeState, const LifeState &startState, const unsigned &maxMatchingGen, const unsigned &stateGen) {
+    std::vector<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> FindPartialMatches(const LifeState &lifeState, const LifeState &startState, const LifeState &avoidState, const unsigned &maxMatchingGen, const unsigned &stateGen) {
         std::vector<std::tuple<unsigned, unsigned, unsigned, SymmetryTransform>> output;
         LifeState matchState = startState;
         for (unsigned matchGen = 0; matchGen < maxMatchingGen; matchGen++) {
             LifeState matchStateBorder = matchState.ZOI() & ~matchState;
-            LifeState catalystsState;
             unsigned generationOffset = stateGen - matchGen;
-            CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, Identity);
+            CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, Identity);
             if (params.findShuttles) {
-                switch (C1) {//TODO: searchData.symmetry) {
+                switch (params.symmetry) {
                     case C1:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 64, ReflectAcrossX);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 1, ReflectAcrossY);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 1, ReflectAcrossYeqX, -1);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 1, ReflectAcrossYeqNegXP1, 1);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 64, Rotate90);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 64, Rotate180OddBoth);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 64, Rotate270);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 64, ReflectAcrossX);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 1, ReflectAcrossY);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 1, ReflectAcrossYeqX, -1);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 1, ReflectAcrossYeqNegXP1, 1);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 64, Rotate90);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 64, Rotate180OddBoth);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 64, Rotate270);
                         break;
                     case D2AcrossX:
                     case D2AcrossXEven:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 1, ReflectAcrossY);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 1, ReflectAcrossY);
                         break;
                     case D2AcrossY:
                     case D2AcrossYEven:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 64, ReflectAcrossX);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 64, ReflectAcrossX);
                         break;
                     case D2diagodd:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 1, ReflectAcrossYeqNegXP1, 1);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 1, ReflectAcrossYeqNegXP1, 1);
                         break;
                     case D2negdiagodd:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 64, 1, ReflectAcrossYeqX, -1);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 64, 1, ReflectAcrossYeqX, -1);
                         break;
                     case C2:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, Rotate90);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, ReflectAcrossX);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, ReflectAcrossYeqX);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, Rotate90);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, ReflectAcrossX);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, ReflectAcrossYeqX);
                         break;
                     case C2even:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, Rotate90Even);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, ReflectAcrossXEven);
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, ReflectAcrossYeqX);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, Rotate90Even);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, ReflectAcrossXEven);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, ReflectAcrossYeqX);
                         break;
                     case C2verticaleven:
                     case C4even:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, ReflectAcrossXEven);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, ReflectAcrossXEven);
                         break;
                     case C2horizontaleven:
                     case C4:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, ReflectAcrossX);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, ReflectAcrossX);
                         break;
                     case D4:
                     case D4diag:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, Rotate90);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, Rotate90);
                         break;
                     case D4even:
                     case D4diageven:
-                        CheckMatches(&output, lifeState, matchState, matchStateBorder, catalystsState, generationOffset, 1, 1, Rotate90Even);
+                        CheckMatches(&output, lifeState, matchState, matchStateBorder, avoidState, generationOffset, 1, 1, Rotate90Even);
                         break;
                     default: break;
                 }
@@ -997,6 +1399,83 @@ class Searcher {
         }
     }
 
+    bool AddOscillatorsToCollection(const LifeState &state, const unsigned &period) {
+        //add all oscillators of period > 2
+        LifeState stateCopy = state;
+        bool foundNewOsc = false;
+        for (unsigned x = 0; x < 64; x++) {
+            if (stateCopy.state[x] != 0ULL) {
+                for (unsigned y = 0; y < 64; y++) {
+                    if (stateCopy.GetCell(x, y) == 1) {
+                        //need to flood every cell based on evolution impact
+                        LifeState oscMask;
+                        oscMask.SetCell(x, y, 1);
+                        unsigned gen = 0;
+                        unsigned lastGenUpated = 0;
+                        LifeState currentState = stateCopy;
+                        while (lastGenUpated + period * 2 >= gen) {
+                            gen++;
+                            LifeState testStateNotOsc = currentState;
+                            testStateNotOsc.Copy(oscMask, ANDNOT);
+                            LifeState testStateOsc = currentState;
+                            testStateOsc.Copy(oscMask, AND);
+                            currentState.Step();
+                            testStateNotOsc.Step();
+                            testStateOsc.Step();
+                            LifeState testState = testStateOsc;
+                            testState.Join(testStateNotOsc);
+                            
+                            //patterns affect each other
+                            //expand oscMask
+                            //this must expand to contain:
+                            //  any active cell or forcing cell in the ZOI of the current oscMask
+                            //  any cell which is on in either osc or not osc but not in currentState
+                            //TODO: This may not quite work perfectly if multi-unices are any indication
+                            LifeState newOscMaskCells = oscMask.ZOI();
+                            newOscMaskCells.Copy(currentState, AND);
+                            LifeState newOscMaskCellsFromErrors = testState;
+                            newOscMaskCellsFromErrors.Copy(currentState, ANDNOT);
+                            newOscMaskCells.Join(newOscMaskCellsFromErrors);
+                            if (!oscMask.Contains(newOscMaskCells)) lastGenUpated = gen;
+                            oscMask.Join(newOscMaskCells);
+                        }
+                        LifeState isolatedOsc = stateCopy;
+                        foundNewOsc |= AddOscillatorToCollection(std::move(isolatedOsc));
+
+                        stateCopy.Copy(std::move(oscMask), ANDNOT);
+                    }
+                }
+            }
+        }
+        return foundNewOsc;
+    }
+
+    bool AddOscillatorToCollection(const LifeState &oscillator) {
+        unsigned period = 0;
+        LifeState copy = oscillator;
+        do {
+            period++;
+            copy.Step();
+        } while (!(copy == oscillator));
+        if (period > 2) {
+            LifeState standardizedState = std::get<0>(copy.StandardizedWithTransforms(C1));
+            for (unsigned i = 1; i < period; i++) {
+                copy.Step();
+
+                standardizedState = std::min(standardizedState, std::get<0>(copy.StandardizedWithTransforms(C1)));
+            }
+
+            if (avoidOscs.find(std::hash<LifeState>{}(standardizedState)) == avoidOscs.end()) {
+                avoidOscs.insert(std::hash<LifeState>{}(standardizedState));
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        else return false;
+    }
+
     void Report() {
         std::chrono::duration<double> timePassed = std::chrono::steady_clock::now() - begin;
         printf("\nSaving output at %f seconds...\n", timePassed.count());
@@ -1004,6 +1483,7 @@ class Searcher {
         //rule string
         std::string ruleString = "x = 0, y = 0, rule = B3/S23\n";
 
+        categoryContainerLock.lock();
         if (allOutputsCategoryContainer.hasBeenUpdated) {
             std::ofstream allResultsFile(params.allOutputFile.c_str());
             allResultsFile << ruleString;
@@ -1018,10 +1498,24 @@ class Searcher {
             allResultsFile.close();
             partialsCategoryContainer.hasBeenUpdated = false;
         }
+        if (shuttlesCategoryContainer.hasBeenUpdated) {
+            std::ofstream allResultsFile(params.shuttlesOutputFile.c_str());
+            allResultsFile << ruleString;
+            allResultsFile << shuttlesCategoryContainer.CategoriesRLE();
+            allResultsFile.close();
+            shuttlesCategoryContainer.hasBeenUpdated = false;
+        }
+        if (oscillatorsCategoryContainer.hasBeenUpdated) {
+            std::ofstream allResultsFile(params.oscsOutputFile.c_str());
+            allResultsFile << ruleString;
+            allResultsFile << oscillatorsCategoryContainer.CategoriesRLE();
+            allResultsFile.close();
+            oscillatorsCategoryContainer.hasBeenUpdated = false;
+        }
 
         std::chrono::time_point<std::chrono::steady_clock> currentTimePoint = std::chrono::steady_clock::now();
         std::chrono::duration<double> currentTime = currentTimePoint - begin;
-        printf("Output saved, took %f seconds:\n  Total Iterations: %llu\n  Iterations per second: %f\n  Generation: %u\n  Main data progress: %u/%llu\n  Next data size: %llu\n  Solution types found: %d/%u\n  Partial types found: %d/%u\n",
+        printf("Output saved, took %f seconds:\n  Total Iterations: %llu\n  Iterations per second: %f\n  Generation: %u\n  Main data progress: %u/%llu\n  Next data size: %llu\n  Solution types found: %d/%u\n  Partial types found: %d/%u\n  Shuttle types found: %d/%u\n  Oscillator types found: %d/%u\n",
             currentTime.count() - timePassed.count(),
             iterations,
             iterations / currentTime.count(),
@@ -1032,8 +1526,14 @@ class Searcher {
             (int)allOutputsCategoryContainer.keys.size(), 
             allOutputsCategoryContainer.size,
             (int)partialsCategoryContainer.keys.size(), 
-            partialsCategoryContainer.size
+            partialsCategoryContainer.size,
+            (int)shuttlesCategoryContainer.keys.size(), 
+            shuttlesCategoryContainer.size,
+            (int)oscillatorsCategoryContainer.keys.size(), 
+            oscillatorsCategoryContainer.size
             );
+
+        categoryContainerLock.unlock();
     }
 };
 
